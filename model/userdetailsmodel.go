@@ -16,6 +16,6 @@ type User struct {
 	Email     string             `bson:"email" json:"email"`
 	Password  string             `bson:"password" json:"password"`
 	UserType  string             `bson:"userType" json:"userType"`
-	Credits   int                `bson:"credits" json:"credits"`
+	Credits   float64                `bson:"credits" json:"credits"`
 	Stocks    []Stock            `bson:"stocks" json:"stocks"`
 }

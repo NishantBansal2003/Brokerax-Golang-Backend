@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/NishantBansal2003/Brokerax/model"
@@ -81,6 +83,72 @@ func FindUserByID(ID primitive.ObjectID) (*model.User, error) {
 	}
 
 	return &result, nil
+}
+
+type FindUserByIDAndStocksRequest struct {
+	ID      primitive.ObjectID
+	StockID string
+}
+
+func FindUserByIDAndStocks(userData FindUserByIDAndStocksRequest) (*model.User, error) {
+	filter := bson.D{
+		{Key: "_id", Value: userData.ID},
+		{Key: "stocks", Value: bson.M{"$elemMatch": bson.M{"stockId": userData.StockID}}},
+	}
+	var result model.User
+	err := collection.FindOne(context.Background(), filter).Decode(&result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func updateUserData(userData FindUserByIDAndStocksRequest, quantity float64, currentPrice float64) (*mongo.UpdateResult, error) {
+	filter := bson.D{
+		{Key: "_id", Value: userData.ID},
+		{Key: "stocks", Value: bson.M{"$elemMatch": bson.M{"stockId": userData.StockID}}},
+	}
+	update := bson.D{
+		{Key: "$inc", Value: bson.M{
+			"stocks.$.quantity":     quantity,
+			"credits":               -currentPrice,
+			"stocks.$.total_amount": currentPrice,
+		}},
+	}
+	updateResult, err := collection.UpdateOne(context.TODO(), filter, update)
+	if err != nil {
+		return nil, err
+	}
+
+	return updateResult, nil
+}
+
+func FindOneUserAndUpdateIt(userId primitive.ObjectID, stockId string, quantity float64, currentPrice float64) (*model.User, error) {
+	filter := bson.D{
+		{Key: "_id", Value: userId},
+	}
+	update := bson.D{
+		{Key: "$addToSet", Value: bson.M{
+			"stocks": bson.M{
+				"stockId":      stockId,
+				"quantity":     quantity,
+				"total_amount": currentPrice,
+			},
+		}},
+		{Key: "$inc", Value: bson.M{
+			"credits": -currentPrice,
+		}},
+	}
+	options := options.FindOneAndUpdate().SetReturnDocument(options.After)
+
+	// Perform the update
+	var updatedUser model.User
+	err := collection.FindOneAndUpdate(context.TODO(), filter, update, options).Decode(&updatedUser)
+	if err != nil {
+		return nil, err
+	}
+
+	return &updatedUser, nil
 }
 
 type LoginRequest struct {
@@ -221,7 +289,6 @@ type PortfolioRequest struct {
 func Portfolio(c *fiber.Ctx) error {
 	var data PortfolioRequest
 	if err := c.BodyParser(&data); err != nil {
-		// If parsing fails, fallback to query parameters
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
 		})
@@ -251,10 +318,90 @@ func Portfolio(c *fiber.Ctx) error {
 	})
 }
 
+type AddStockRequest struct {
+	UserId        string `json:"userId"`
+	StockId       string `json:"stockId"`
+	Current_price string `json:"current_price"`
+	Quantity      string `json:"quantity"`
+}
+
 func AddStock(c *fiber.Ctx) error {
-	return nil
+	var data AddStockRequest
+	if err := c.BodyParser(&data); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+	userIdstr := strings.ReplaceAll(data.UserId, `"`, "")
+	userIdstr = strings.ReplaceAll(userIdstr, `'`, "")
+	currentPrice, err := strconv.ParseFloat(data.Current_price, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+	quantity, err := strconv.ParseFloat(data.Quantity, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+	userId, err := primitive.ObjectIDFromHex(userIdstr)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"Status": "Invalid ID format",
+			"Error":  err.Error(),
+			"Data":   data.UserId,
+		})
+	}
+	userData, err := FindUserByID(userId)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "No User found",
+			"Data":  userId,
+		})
+	}
+	if userData.Credits-currentPrice < 0 {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Insufficient Credits",
+		})
+	}
+	req := FindUserByIDAndStocksRequest{
+		ID:      userId,
+		StockID: data.StockId,
+	}
+	_, err = FindUserByIDAndStocks(req)
+	if err == nil {
+		_, err := updateUserData(req, quantity, currentPrice)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "No User found",
+			})
+		}
+	} else {
+		_, err := FindOneUserAndUpdateIt(userId, data.StockId, quantity, currentPrice)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "No User found",
+			})
+		}
+	}
+	updatrdUser, err := FindUserByID((userId))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "No User found",
+		})
+	}
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			"stocks": updatrdUser.Stocks,
+			"credit": updatrdUser.Credits,
+		},
+	})
 }
 
 func RemoveStock(c *fiber.Ctx) error {
+	
 	return nil
 }
