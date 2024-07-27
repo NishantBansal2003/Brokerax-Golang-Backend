@@ -72,6 +72,17 @@ func findUser(email string) (*model.User, error) {
 	return &result, nil
 }
 
+func FindUserByID(ID primitive.ObjectID) (*model.User, error) {
+	filter := bson.D{{Key: "ID", Value: ID}}
+	var result model.User
+	err := collection.FindOne(context.Background(), filter).Decode(&result)
+	if err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}
+
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
@@ -112,6 +123,9 @@ func Login(c *fiber.Ctx) error {
 		// If parsing fails, fallback to query parameters
 		data.Email = c.Query("email")
 		data.Password = c.Query("password")
+		// return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		// 	"error": "Invalid request body",
+		// })
 	}
 	existingUser, err := findUser(data.Email)
 	if err != nil {
@@ -134,8 +148,14 @@ func Login(c *fiber.Ctx) error {
 		})
 	}
 	return c.JSON(fiber.Map{
-		"User":  existingUser,
-		"Token": token,
+		"success": true,
+		"data": fiber.Map{
+			"userId":     existingUser.ID,    // Use existingUser.ID to match the struct field
+			"email":      existingUser.Email, // Use existingUser.Email to match the struct field
+			"token":      token,
+			"first_name": existingUser.FirstName, // Use existingUser.FirstName to match the struct field
+			"last_name":  existingUser.LastName,  // Use existingUser.LastName to match the struct field
+		},
 	})
 }
 
@@ -176,7 +196,7 @@ func Signup(c *fiber.Ctx) error {
 			"error": "User Already Exists",
 		})
 	}
-	newUser:=*ConvertToUser(data)
+	newUser := *ConvertToUser(data)
 	insertNewUser(newUser)
 	token, err := GenerateToken(newUser.ID, newUser.Email)
 	if err != nil {
@@ -185,14 +205,15 @@ func Signup(c *fiber.Ctx) error {
 		})
 	}
 	return c.JSON(fiber.Map{
-		"User":  newUser,
-		"Token": token,
+		"success": true,
+		"data": fiber.Map{
+			"userId":     newUser.ID,
+			"email":      newUser.Email,
+			"token":      token,
+			"first_name": newUser.FirstName,
+			"last_name":  newUser.LastName,
+		},
 	})
-}
-
-func Logout(c *fiber.Ctx) error {
-	
-	return nil
 }
 
 func Portfolio(c *fiber.Ctx) error {

@@ -8,7 +8,6 @@ import (
 func Setup(app *fiber.App) {
 	app.Post("/api/auth/login", controller.Login)
 	app.Post("/api/auth/signup", controller.Signup)
-	app.Delete("/api/auth/logout", controller.Logout)
 
 	app.Post("/api/user/portfolio", controller.Portfolio)
 	app.Post("/api/user//stock/add", controller.AddStock)
