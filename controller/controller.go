@@ -73,7 +73,7 @@ func findUser(email string) (*model.User, error) {
 }
 
 func FindUserByID(ID primitive.ObjectID) (*model.User, error) {
-	filter := bson.D{{Key: "ID", Value: ID}}
+	filter := bson.D{{Key: "_id", Value: ID}}
 	var result model.User
 	err := collection.FindOne(context.Background(), filter).Decode(&result)
 	if err != nil {
@@ -123,9 +123,7 @@ func Login(c *fiber.Ctx) error {
 		// If parsing fails, fallback to query parameters
 		data.Email = c.Query("email")
 		data.Password = c.Query("password")
-		// return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-		// 	"error": "Invalid request body",
-		// })
+
 	}
 	existingUser, err := findUser(data.Email)
 	if err != nil {
@@ -216,8 +214,41 @@ func Signup(c *fiber.Ctx) error {
 	})
 }
 
+type PortfolioRequest struct {
+	UserId string `json:"userId"`
+}
+
 func Portfolio(c *fiber.Ctx) error {
-	return nil
+	var data PortfolioRequest
+	if err := c.BodyParser(&data); err != nil {
+		// If parsing fails, fallback to query parameters
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+	userId, err := primitive.ObjectIDFromHex(data.UserId)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"Status": "Invalid ID format",
+			"Error":  err.Error(),
+			"Data":   data.UserId,
+		})
+	}
+	userData, err := FindUserByID(userId)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "No User found",
+			"Data":  userId,
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"success": true,
+		"data": fiber.Map{
+			"stocks": userData.ID,
+			"credit": userData.Email,
+		},
+	})
 }
 
 func AddStock(c *fiber.Ctx) error {
