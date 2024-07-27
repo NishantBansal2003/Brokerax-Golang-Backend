@@ -139,11 +139,59 @@ func Login(c *fiber.Ctx) error {
 	})
 }
 
+type SignUpRequest struct {
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+	Email     string `json:"email"`
+	Password  string `json:"password"`
+}
+
+func ConvertToUser(req SignUpRequest) *model.User {
+	return &model.User{
+		ID:        primitive.NewObjectID(), // Generate a new ObjectID for the user
+		FirstName: req.FirstName,
+		LastName:  req.LastName,
+		Email:     req.Email,
+		Password:  req.Password,
+		UserType:  "regular",       // Set default or determine dynamically
+		Credits:   1000000,         // Default value
+		Stocks:    []model.Stock{}, // Default empty slice
+	}
+}
+
 func Signup(c *fiber.Ctx) error {
-	return nil
+	var data SignUpRequest
+
+	// Parse the request body into the data struct
+	if err := c.BodyParser(&data); err != nil {
+		// If parsing fails, fallback to query parameters
+		data.FirstName = c.Query("firstName")
+		data.LastName = c.Query("lastName")
+		data.Email = c.Query("email")
+		data.Password = c.Query("password")
+	}
+	_, err := findUser(data.Email)
+	if err == nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "User Already Exists",
+		})
+	}
+	newUser:=*ConvertToUser(data)
+	insertNewUser(newUser)
+	token, err := GenerateToken(newUser.ID, newUser.Email)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Issue while generating token, Please Try Again!",
+		})
+	}
+	return c.JSON(fiber.Map{
+		"User":  newUser,
+		"Token": token,
+	})
 }
 
 func Logout(c *fiber.Ctx) error {
+	
 	return nil
 }
 
