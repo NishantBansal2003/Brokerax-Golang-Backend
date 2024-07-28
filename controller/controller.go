@@ -259,12 +259,6 @@ func Login(c *fiber.Ctx) error {
 			"error":   "Wrong details Please Check Once",
 		})
 	}
-	// if existingUser == nil || existingUser.Password != data.Password {
-	// 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-	// 		"success": false,
-	// 		"error":   "Wrong details Please Check Once",
-	// 	})
-	// }
 
 	token, err := GenerateToken(existingUser.ID, existingUser.Email)
 	if err != nil {
@@ -276,11 +270,11 @@ func Login(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data": fiber.Map{
-			"userId":     existingUser.ID,    // Use existingUser.ID to match the struct field
-			"email":      existingUser.Email, // Use existingUser.Email to match the struct field
+			"userId":     existingUser.ID,
+			"email":      existingUser.Email,
 			"token":      token,
-			"first_name": existingUser.FirstName, // Use existingUser.FirstName to match the struct field
-			"last_name":  existingUser.LastName,  // Use existingUser.LastName to match the struct field
+			"first_name": existingUser.FirstName,
+			"last_name":  existingUser.LastName,
 		},
 	})
 }
@@ -294,14 +288,14 @@ type SignUpRequest struct {
 
 func ConvertToUser(req SignUpRequest) *model.User {
 	return &model.User{
-		ID:        primitive.NewObjectID(), // Generate a new ObjectID for the user
+		ID:        primitive.NewObjectID(),
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
 		Email:     req.Email,
 		Password:  req.Password,
-		UserType:  "regular",       // Set default or determine dynamically
-		Credits:   1000000,         // Default value
-		Stocks:    []model.Stock{}, // Default empty slice
+		UserType:  "regular",
+		Credits:   1000000,
+		Stocks:    []model.Stock{},
 	}
 }
 
@@ -332,7 +326,6 @@ func Signup(c *fiber.Ctx) error {
 			"error":   "Error Encrypting password",
 		})
 	}
-	// fmt.Println(string(hashedPassword))
 	newUser.Password = string(hashedPassword)
 	insertNewUser(newUser)
 	token, err := GenerateToken(newUser.ID, newUser.Email)
@@ -417,14 +410,7 @@ func AddStock(c *fiber.Ctx) error {
 			"error":   "Unable to parse price",
 		})
 	}
-	// quantity, err := strconv.ParseFloat(data.Quantity, 64)
 	quantity := data.Quantity
-	// if err != nil {
-	// 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-	// 		"success": false,
-	// 		"error":   "Unable to parse price quantity",
-	// 	})
-	// }
 	userId, err := primitive.ObjectIDFromHex(userIdstr)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -512,14 +498,7 @@ func RemoveStock(c *fiber.Ctx) error {
 			"error":   "Invalid request body",
 		})
 	}
-	// quantity, err := strconv.ParseFloat(data.Quantity, 64)
 	quantity := data.Quantity
-	// if err != nil {
-	// 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-	// 		"success": false,
-	// 		"error":   "Invalid request body",
-	// 	})
-	// }
 	userId, err := primitive.ObjectIDFromHex(userIdstr)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
