@@ -26,7 +26,7 @@ var (
 )
 
 const (
-	dbName  = "test"
+	dbName  = "BrokeraxProd"
 	colName = "UserInfo"
 )
 
@@ -245,21 +245,24 @@ func Login(c *fiber.Ctx) error {
 	existingUser, err := findUser(data.Email)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":  "Error finding user",
-			"detail": err.Error(), // Include the error message
+			"success": false,
+			"error":   "Error finding user",
+			"detail":  err.Error(), // Include the error message
 		})
 	}
 
 	if existingUser == nil || existingUser.Password != data.Password {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Wrong details Please Check Once",
+			"success": false,
+			"error":   "Wrong details Please Check Once",
 		})
 	}
 
 	token, err := GenerateToken(existingUser.ID, existingUser.Email)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Issue while generating token, Please Try Again!",
+			"success": false,
+			"error":   "Issue while generating token, Please Try Again!",
 		})
 	}
 	return c.JSON(fiber.Map{
@@ -308,7 +311,8 @@ func Signup(c *fiber.Ctx) error {
 	_, err := findUser(data.Email)
 	if err == nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "User Already Exists",
+			"success": false,
+			"error":   "User Already Exists",
 		})
 	}
 	newUser := *ConvertToUser(data)
@@ -316,7 +320,8 @@ func Signup(c *fiber.Ctx) error {
 	token, err := GenerateToken(newUser.ID, newUser.Email)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Issue while generating token, Please Try Again!",
+			"success": false,
+			"error":   "Issue while generating token, Please Try Again!",
 		})
 	}
 	return c.JSON(fiber.Map{
@@ -339,46 +344,50 @@ func Portfolio(c *fiber.Ctx) error {
 	var data PortfolioRequest
 	if err := c.BodyParser(&data); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
+			"success": false,
+			"error":   "Invalid request body",
 		})
 	}
 	userId, err := primitive.ObjectIDFromHex(data.UserId)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"Status": "Invalid ID format",
-			"Error":  err.Error(),
-			"Data":   data.UserId,
+			"success": false,
+			"Status":  "Invalid ID format",
+			"Error":   err.Error(),
+			"Data":    data.UserId,
 		})
 	}
 	userData, err := FindUserByID(userId)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "No User found",
-			"Data":  userId,
+			"success": false,
+			"error":   "No User found",
+			"Data":    userId,
 		})
 	}
 
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data": fiber.Map{
-			"stocks": userData.ID,
-			"credit": userData.Email,
+			"stocks":  userData.Stocks,
+			"credits": userData.Credits,
 		},
 	})
 }
 
 type StockRequest struct {
-	UserId        string `json:"userId"`
-	StockId       string `json:"stockId"`
-	Current_price string `json:"current_price"`
-	Quantity      string `json:"quantity"`
+	UserId        string  `json:"userId"`
+	StockId       string  `json:"stockId"`
+	Current_price string  `json:"current_price"`
+	Quantity      float64 `json:"quantity"`
 }
 
 func AddStock(c *fiber.Ctx) error {
 	var data StockRequest
 	if err := c.BodyParser(&data); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
+			"success": false,
+			"error":   "Invalid request body",
 		})
 	}
 	userIdstr := strings.ReplaceAll(data.UserId, `"`, "")
@@ -386,33 +395,39 @@ func AddStock(c *fiber.Ctx) error {
 	currentPrice, err := strconv.ParseFloat(data.Current_price, 64)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
+			"success": false,
+			"error":   "Unable to parse price",
 		})
 	}
-	quantity, err := strconv.ParseFloat(data.Quantity, 64)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
-	}
+	// quantity, err := strconv.ParseFloat(data.Quantity, 64)
+	quantity := data.Quantity
+	// if err != nil {
+	// 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+	// 		"success": false,
+	// 		"error":   "Unable to parse price quantity",
+	// 	})
+	// }
 	userId, err := primitive.ObjectIDFromHex(userIdstr)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"Status": "Invalid ID format",
-			"Error":  err.Error(),
-			"Data":   data.UserId,
+			"success": false,
+			"Status":  "Invalid ID format",
+			"Error":   err.Error(),
+			"Data":    data.UserId,
 		})
 	}
 	userData, err := FindUserByID(userId)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "No User found",
-			"Data":  userId,
+			"success": false,
+			"error":   "No User found",
+			"Data":    userId,
 		})
 	}
 	if userData.Credits-currentPrice < 0 {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Insufficient Credits",
+			"success": false,
+			"error":   "Insufficient Credits",
 		})
 	}
 	req := FindUserByIDAndStocksRequest{
@@ -424,28 +439,31 @@ func AddStock(c *fiber.Ctx) error {
 		_, err := updateUserData(req, quantity, currentPrice)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "No User found",
+				"success": false,
+				"error":   "No User found",
 			})
 		}
 	} else {
 		_, err := FindOneUserAndUpdateIt(userId, data.StockId, quantity, currentPrice)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "No User found",
+				"success": false,
+				"error":   "No User found",
 			})
 		}
 	}
 	updatrdUser, err := FindUserByID((userId))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "No User found",
+			"success": false,
+			"error":   "No User found",
 		})
 	}
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data": fiber.Map{
-			"stocks": updatrdUser.Stocks,
-			"credit": updatrdUser.Credits,
+			"stocks":  updatrdUser.Stocks,
+			"credits": updatrdUser.Credits,
 		},
 	})
 }
@@ -463,7 +481,8 @@ func RemoveStock(c *fiber.Ctx) error {
 	var data StockRequest
 	if err := c.BodyParser(&data); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
+			"success": false,
+			"error":   "Invalid request body",
 		})
 	}
 	userIdstr := strings.ReplaceAll(data.UserId, `"`, "")
@@ -471,21 +490,25 @@ func RemoveStock(c *fiber.Ctx) error {
 	currentPrice, err := strconv.ParseFloat(data.Current_price, 64)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
+			"success": false,
+			"error":   "Invalid request body",
 		})
 	}
-	quantity, err := strconv.ParseFloat(data.Quantity, 64)
-	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid request body",
-		})
-	}
+	// quantity, err := strconv.ParseFloat(data.Quantity, 64)
+	quantity := data.Quantity
+	// if err != nil {
+	// 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+	// 		"success": false,
+	// 		"error":   "Invalid request body",
+	// 	})
+	// }
 	userId, err := primitive.ObjectIDFromHex(userIdstr)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"Status": "Invalid ID format",
-			"Error":  err.Error(),
-			"Data":   data.UserId,
+			"success": false,
+			"Status":  "Invalid ID format",
+			"Error":   err.Error(),
+			"Data":    data.UserId,
 		})
 	}
 	req := FindUserByIDAndStocksRequest{
@@ -495,38 +518,42 @@ func RemoveStock(c *fiber.Ctx) error {
 	user, err := FindUserByIDAndStocks(req)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "No User Found",
+			"success": false,
+			"error":   "No User Found",
 		})
 	}
 	stock := findStockByID(user, data.StockId)
 	newQuantity := stock.Quantity - quantity
 	newTotalAmount := stock.TotalAmount - currentPrice
-	if newQuantity > 0 && newTotalAmount > 0 {
+	if newQuantity > 0 && newTotalAmount > 1 {
 		_, err := removeStocksAndUpdate(req, newQuantity, currentPrice, newTotalAmount)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "Invalid Stock Operation",
+				"success": false,
+				"error":   "Invalid Stock Operation",
 			})
 		}
 	} else {
 		_, err := updateUserStockList(userId, data.StockId, currentPrice)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"error": "Invalid Stock Operation",
+				"success": false,
+				"error":   "Invalid Stock Operation",
 			})
 		}
 	}
 	updatrdUser, err := FindUserByID((userId))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "No User found",
+			"success": false,
+			"error":   "No User found",
 		})
 	}
 	return c.JSON(fiber.Map{
 		"success": true,
 		"data": fiber.Map{
 			"stocks":      updatrdUser.Stocks,
-			"credit":      updatrdUser.Credits,
+			"credits":     updatrdUser.Credits,
 			"amount_left": newTotalAmount,
 		},
 	})
