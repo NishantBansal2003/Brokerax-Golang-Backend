@@ -17,6 +17,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -243,20 +244,27 @@ func Login(c *fiber.Ctx) error {
 
 	}
 	existingUser, err := findUser(data.Email)
-	if err != nil {
+	if existingUser == nil || err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
 			"error":   "Error finding user",
 			"detail":  err.Error(), // Include the error message
 		})
 	}
-
-	if existingUser == nil || existingUser.Password != data.Password {
+	// Decrytping password
+	err = bcrypt.CompareHashAndPassword([]byte(existingUser.Password), []byte(data.Password))
+	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"success": false,
 			"error":   "Wrong details Please Check Once",
 		})
 	}
+	// if existingUser == nil || existingUser.Password != data.Password {
+	// 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+	// 		"success": false,
+	// 		"error":   "Wrong details Please Check Once",
+	// 	})
+	// }
 
 	token, err := GenerateToken(existingUser.ID, existingUser.Email)
 	if err != nil {
@@ -316,6 +324,16 @@ func Signup(c *fiber.Ctx) error {
 		})
 	}
 	newUser := *ConvertToUser(data)
+	// Encrytping Password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newUser.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"success": false,
+			"error":   "Error Encrypting password",
+		})
+	}
+	// fmt.Println(string(hashedPassword))
+	newUser.Password = string(hashedPassword)
 	insertNewUser(newUser)
 	token, err := GenerateToken(newUser.ID, newUser.Email)
 	if err != nil {
