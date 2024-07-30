@@ -522,7 +522,7 @@ func RemoveStock(c *fiber.Ctx) error {
 	stock := findStockByID(user, data.StockId)
 	newQuantity := stock.Quantity - quantity
 	newTotalAmount := stock.TotalAmount - currentPrice
-	if newQuantity > 0 && newTotalAmount > 1 {
+	if newQuantity > 0 && newTotalAmount >= 10 {
 		_, err := removeStocksAndUpdate(req, newQuantity, currentPrice, newTotalAmount)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -531,6 +531,7 @@ func RemoveStock(c *fiber.Ctx) error {
 			})
 		}
 	} else {
+		currentPrice = stock.TotalAmount
 		_, err := updateUserStockList(userId, data.StockId, currentPrice)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
