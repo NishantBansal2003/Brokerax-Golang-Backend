@@ -5,10 +5,13 @@ import (
 	"os"
 
 	controller "github.com/NishantBansal2003/Brokerax/controller"
+	_ "github.com/NishantBansal2003/Brokerax/metrics"
 	routes "github.com/NishantBansal2003/Brokerax/router"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -25,6 +28,7 @@ func main() {
 	// Connecting with MongoDB
 	controller.Connect()
 
+	app.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
 	// Setup the routes
 	routes.Setup(app)
 
@@ -35,5 +39,6 @@ func main() {
 			"message": "Hello World",
 		})
 	})
+
 	log.Fatal(app.Listen(":" + PORT))
 }

@@ -9,10 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/NishantBansal2003/Brokerax/metrics"
 	"github.com/NishantBansal2003/Brokerax/model"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -234,6 +236,12 @@ func GenerateToken(userIDp primitive.ObjectID, email string) (string, error) {
 }
 
 func Login(c *fiber.Ctx) error {
+	// Start timer for request duration
+	timer := prometheus.NewTimer(metrics.HttpRequestDuration.WithLabelValues("/api/auth/login"))
+	defer timer.ObserveDuration()
+
+	// Increment the request counter
+	metrics.HttpRequestsTotal.WithLabelValues("/api/auth/login").Inc()
 	var data LoginRequest
 
 	// Parse the request body into the data struct
@@ -300,6 +308,12 @@ func ConvertToUser(req SignUpRequest) *model.User {
 }
 
 func Signup(c *fiber.Ctx) error {
+	// Start timer for request duration
+	timer := prometheus.NewTimer(metrics.HttpRequestDuration.WithLabelValues("/api/auth/signup"))
+	defer timer.ObserveDuration()
+	
+	// Increment the request counter
+	metrics.HttpRequestsTotal.WithLabelValues("/api/auth/signup").Inc()
 	var data SignUpRequest
 
 	// Parse the request body into the data struct
@@ -352,6 +366,12 @@ type PortfolioRequest struct {
 }
 
 func Portfolio(c *fiber.Ctx) error {
+	// Start timer for request duration
+	timer := prometheus.NewTimer(metrics.HttpRequestDuration.WithLabelValues("/api/user/portfolio"))
+	defer timer.ObserveDuration()
+	
+	// Increment the request counter
+	metrics.HttpRequestsTotal.WithLabelValues("/api/user/portfolio").Inc()
 	var data PortfolioRequest
 	if err := c.BodyParser(&data); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -394,6 +414,12 @@ type StockRequest struct {
 }
 
 func AddStock(c *fiber.Ctx) error {
+	// Start timer for request duration
+	timer := prometheus.NewTimer(metrics.HttpRequestDuration.WithLabelValues("/api/user/stock/add"))
+	defer timer.ObserveDuration()
+	
+	// Increment the request counter
+	metrics.HttpRequestsTotal.WithLabelValues("/api/user/stock/add").Inc()
 	var data StockRequest
 	if err := c.BodyParser(&data); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -482,6 +508,12 @@ func findStockByID(user *model.User, stockId string) *model.Stock {
 }
 
 func RemoveStock(c *fiber.Ctx) error {
+	// Start timer for request duration
+	timer := prometheus.NewTimer(metrics.HttpRequestDuration.WithLabelValues("/api/user/stock/remove"))
+	defer timer.ObserveDuration()
+	
+	// Increment the request counter
+	metrics.HttpRequestsTotal.WithLabelValues("/api/user/stock/remove").Inc()
 	var data StockRequest
 	if err := c.BodyParser(&data); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
